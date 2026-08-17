@@ -36,13 +36,13 @@
 │           │                    │                    │                      │                  │
 │           └────────────────────┴─────────┬──────────┴──────────────────────┘                  │
 │                                          ▼                                                    │
-│                                ┌──────────────────────┐                                        │
+│                                ┌──────────────────────┐                                       │
 │                                │  MovementExecutor    │  ← single point of truth for          │
 │                                │  (applies final      │    all agent input, resolves          │
 │                                │   velocity/actions)  │    conflicts between controllers      │
 │                                └──────────┬───────────┘                                       │
 │                                           │                                                   │
-│                                ┌──────────▼────────────┐                                       │
+│                                ┌──────────▼────────────┐                                      |
 │                                │  CameraController     │  runs in parallel, reads agent       │
 │                                │  (independent of      │  state + path, writes yaw/pitch only │
 │                                │   movement)           │                                      │
