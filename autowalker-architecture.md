@@ -12,46 +12,46 @@
 ## Module map
 
 ```
-┌─────────────────┐
+┌───────────────────┐
 │  block_costs.json │  (static config, no logic)
 └─────────┬─────────┘
           │
 ┌─────────▼─────────┐
-│  GlobalPlanner     │  coarse A* over sparse graph → strategic waypoints
+│  GlobalPlanner    │  coarse A* over sparse graph → strategic waypoints
 └─────────┬─────────┘
           │  Waypoint[]
 ┌─────────▼─────────┐
-│  PathAnnotator     │  tags waypoints with interaction/jump/hazard metadata
+│  PathAnnotator    │  tags waypoints with interaction/jump/hazard metadata
 └─────────┬─────────┘
           │  AnnotatedWaypoint[]
           │
           ▼
-┌───────────────────────────── AgentTickLoop (runs every tick) ─────────────────────────────┐
-│                                                                                              │
-│   ┌───────────────┐   ┌────────────────┐   ┌────────────────┐   ┌──────────────────┐       │
-│   │ SteeringCtrl   │   │ JumpController │   │ SprintCtrl      │   │ InteractablesCtrl │       │
-│   │ (velocity/     │   │ (lookahead     │   │ (state machine, │   │ (door/button/     │       │
-│   │  momentum)     │   │  jump timing)  │   │  hysteresis)    │   │  plate handling)   │       │
-│   └───────┬────────┘   └───────┬────────┘   └───────┬────────┘   └─────────┬─────────┘       │
-│           │                    │                     │                      │                 │
-│           └────────────────────┴─────────┬───────────┴──────────────────────┘                 │
-│                                           ▼                                                    │
-│                                ┌─────────────────────┐                                         │
-│                                │  MovementExecutor    │  ← single point of truth for            │
-│                                │  (applies final      │    all agent input, resolves            │
-│                                │   velocity/actions)  │    conflicts between controllers        │
-│                                └──────────┬───────────┘                                         │
-│                                           │                                                     │
-│                                ┌──────────▼───────────┐                                         │
-│                                │  CameraController     │  runs in parallel, reads agent          │
-│                                │  (independent of      │  state + path, writes yaw/pitch only    │
-│                                │   movement)           │                                         │
-│                                └───────────────────────┘                                         │
-└──────────────────────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────── AgentTickLoop (runs every tick) ─────────────────────────────────┐
+│                                                                                               │
+│   ┌────────────────┐   ┌────────────────┐   ┌────────────────┐   ┌───────────────────┐        │
+│   │ SteeringCtrl   │   │ JumpController │   │ SprintCtrl     │   │ InteractablesCtrl │        │
+│   │ (velocity/     │   │ (lookahead     │   │ (state machine,│   │ (door/button/     │        │
+│   │  momentum)     │   │  jump timing)  │   │  hysteresis)   │   │  plate handling)  │        │
+│   └───────┬────────┘   └───────┬────────┘   └───────┬────────┘   └─────────┬─────────┘        │
+│           │                    │                    │                      │                  │
+│           └────────────────────┴─────────┬──────────┴──────────────────────┘                  │
+│                                          ▼                                                    │
+│                                ┌─────────────────────┐                                        │
+│                                │  MovementExecutor    │  ← single point of truth for          │
+│                                │  (applies final      │    all agent input, resolves          │
+│                                │   velocity/actions)  │    conflicts between controllers      │
+│                                └──────────┬───────────┘                                       │
+│                                           │                                                   │
+│                                ┌──────────▼───────────┐                                       │
+│                                │  CameraController     │  runs in parallel, reads agent       │
+│                                │  (independent of      │  state + path, writes yaw/pitch only │
+│                                │   movement)           │                                      │
+│                                └───────────────────────┘                                      │
+└───────────────────────────────────────────────────────────────────────────────────────────────┘
                                            │
                                 ┌──────────▼───────────┐
-                                │  DebugLogger/Overlay   │  subscribes to all modules, no writes
-                                └────────────────────────┘
+                                │  DebugLogger/Overlay │  subscribes to all modules, no writes
+                                └──────────────────────┘
 ```
 
 ---
