@@ -250,6 +250,65 @@ Every controller reads from this shared object but never writes to it — settin
 
 ---
 
+## File structure
+ 
+Mirrors the module map 1:1 — one module, one file (or one folder if a module grows enough to need internal splitting, e.g. `interactables/` with separate handlers per interactable type). Nothing shared implicitly; anything cross-module goes through `types.js` or `config/`.
+ 
+```
+autowalker/
+├── config/
+│   ├── block_costs.json          # module 1 — static traversal costs
+│   ├── settings.json             # shared Settings object, operator-editable
+│   └── constants.js              # all tuning constants, grouped by module (exported as named objects)
+│
+├── core/
+│   ├── types.js                  # Waypoint, AnnotatedWaypoint, Interaction, AgentState, all output shapes
+│   ├── worldView.js               # thin wrapper around world/chunk access (isolates Mineflayer/bot-API calls)
+│   └── agentTickLoop.js           # module 4 — orchestration only, no decision logic
+│
+├── planning/
+│   ├── globalPlanner.js           # module 2 — A*, segment stitching, cost jitter
+│   └── pathAnnotator.js           # module 3 — waypoint tagging (jump/interaction/hazard/ground)
+│
+├── controllers/
+│   ├── steeringController.js      # module 5
+│   ├── jumpController.js          # module 6
+│   ├── sprintController.js        # module 7
+│   ├── interactablesController.js # module 8
+│   │   ├── handlers/
+│   │   │   ├── door.js
+│   │   │   ├── gate.js
+│   │   │   ├── button.js
+│   │   │   └── pressurePlate.js
+│   └── cameraController.js        # module 10
+│
+├── execution/
+│   └── movementExecutor.js        # module 9 — only file allowed to call real bot input APIs
+│
+├── debug/
+│   ├── debugLogger.js             # module 11 — per-tick structured logging
+│   ├── overlay.js                 # in-world path/node visualization
+│   └── replay.js                  # offline replay of recorded tick logs against MovementExecutor
+│
+├── tests/
+│   ├── planning/
+│   │   └── globalPlanner.test.js
+│   ├── controllers/
+│   │   ├── jumpController.test.js
+│   │   ├── sprintController.test.js
+│   │   └── interactablesController.test.js
+│   └── fixtures/
+│       └── mockWorld.js           # fake WorldView for isolated controller testing, no live server needed
+│
+├── index.js                       # entry point: wires modules together, starts tick loop
+└── README.md                      # points back to this architecture doc
+```
+ 
+**Rules that keep this structure honest as the project grows:**
+- A file under `controllers/` may import from `core/types.js` and `config/`, but never from another file in `controllers/` directly — if two controllers need to share data, it flows through the tick loop's parameters, not a cross-import. This is what stops the "everything imports everything" tangle that makes debugging hard.
+- Only `execution/movementExecutor.js` and `core/worldView.js` are allowed to import the actual bot/game API (Mineflayer, etc.). Every other file works against the plain data types in `core/types.js`. This is what makes the `tests/fixtures/mockWorld.js` approach possible — controllers never know or care whether they're talking to a real server or a fixture.
+- `debug/` files subscribe to data, never produce it — if a bug only appears with `debugLogger` attached, that's itself a bug (logging must be side-effect-free).
+
 ## Suggested build order
 
 1. `block_costs.json` + `GlobalPlanner` — get raw coarse pathing working, verify with overlay logging before anything else exists.
