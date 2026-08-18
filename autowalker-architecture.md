@@ -250,64 +250,72 @@ Every controller reads from this shared object but never writes to it — settin
 
 ---
 
-## File structure
- 
-Mirrors the module map 1:1 — one module, one file (or one folder if a module grows enough to need internal splitting, e.g. `interactables/` with separate handlers per interactable type). Nothing shared implicitly; anything cross-module goes through `types.js` or `config/`.
- 
+## File structure (Fabric / Java)
+
+Mirrors the module map 1:1 — one module, one class (or one package if a module grows enough to need internal splitting, e.g. `interactables/` with separate handlers per interactable type). Nothing shared implicitly; anything cross-module goes through `core/types/` or `config/`. This is a standard Fabric Loom (Gradle) project — generated via the Fabric Template Mod Generator — not a Node package.
+
 ```
-autowalker/
+src/main/java/com/yourname/autowalker/
 ├── config/
-│   ├── block_costs.json          # module 1 — static traversal costs
-│   ├── settings.json             # shared Settings object, operator-editable
-│   └── constants.js              # all tuning constants, grouped by module (exported as named objects)
+│   ├── BlockCosts.java             # module 1 — loads block_costs.json, exposes cost/passability lookups
+│   ├── AutowalkerSettings.java     # shared Settings object, operator-editable (POJO or Cloth Config screen)
+│   └── Constants.java              # all tuning constants, grouped by module (nested static classes)
 │
 ├── core/
-│   ├── types.js                  # Waypoint, AnnotatedWaypoint, Interaction, AgentState, all output shapes
-│   ├── worldView.js               # thin wrapper around world/chunk access (isolates Mineflayer/bot-API calls)
-│   └── agentTickLoop.js           # module 4 — orchestration only, no decision logic
+│   ├── types/
+│   │   ├── Waypoint.java
+│   │   ├── AnnotatedWaypoint.java
+│   │   ├── Interaction.java
+│   │   └── AgentState.java         # + one record/class per controller output shape
+│   ├── WorldView.java               # thin wrapper around MinecraftClient world/chunk access (isolates client-API calls)
+│   └── AgentTickLoop.java           # module 4 — hooks ClientTickEvents.END_CLIENT_TICK, orchestration only
 │
 ├── planning/
-│   ├── globalPlanner.js           # module 2 — A*, segment stitching, cost jitter
-│   └── pathAnnotator.js           # module 3 — waypoint tagging (jump/interaction/hazard/ground)
+│   ├── GlobalPlanner.java           # module 2 — A*, segment stitching, cost jitter
+│   └── PathAnnotator.java           # module 3 — waypoint tagging (jump/interaction/hazard/ground)
 │
 ├── controllers/
-│   ├── steeringController.js      # module 5
-│   ├── jumpController.js          # module 6
-│   ├── sprintController.js        # module 7
-│   ├── interactablesController.js # module 8
-│   │   ├── handlers/
-│   │   │   ├── door.js
-│   │   │   ├── gate.js
-│   │   │   ├── button.js
-│   │   │   └── pressurePlate.js
-│   └── cameraController.js        # module 10
+│   ├── SteeringController.java      # module 5
+│   ├── JumpController.java          # module 6
+│   ├── SprintController.java        # module 7
+│   ├── InteractablesController.java # module 8
+│   │   └── handlers/
+│   │       ├── DoorHandler.java
+│   │       ├── GateHandler.java
+│   │       ├── ButtonHandler.java
+│   │       └── PressurePlateHandler.java
+│   └── CameraController.java        # module 10
 │
 ├── execution/
-│   └── movementExecutor.js        # module 9 — only file allowed to call real bot input APIs
+│   └── MovementExecutor.java        # module 9 — only class allowed to write client.player.input / send interact packets
 │
 ├── debug/
-│   ├── debugLogger.js             # module 11 — per-tick structured logging
-│   ├── overlay.js                 # in-world path/node visualization
-│   └── replay.js                  # offline replay of recorded tick logs against MovementExecutor
+│   ├── DebugLogger.java             # module 11 — per-tick structured logging
+│   ├── Overlay.java                 # in-world path/node visualization (WorldRenderEvents / HUD render)
+│   └── Replay.java                  # offline replay of recorded tick logs against MovementExecutor
 │
-├── tests/
-│   ├── planning/
-│   │   └── globalPlanner.test.js
-│   ├── controllers/
-│   │   ├── jumpController.test.js
-│   │   ├── sprintController.test.js
-│   │   └── interactablesController.test.js
-│   └── fixtures/
-│       └── mockWorld.js           # fake WorldView for isolated controller testing, no live server needed
-│
-├── index.js                       # entry point: wires modules together, starts tick loop
-└── README.md                      # points back to this architecture doc
+└── AutowalkerMod.java                # entry point: implements ClientModInitializer, wires modules together
+
+src/test/java/com/yourname/autowalker/
+├── planning/
+│   └── GlobalPlannerTest.java
+├── controllers/
+│   ├── JumpControllerTest.java
+│   ├── SprintControllerTest.java
+│   └── InteractablesControllerTest.java
+└── fixtures/
+    └── MockWorldView.java            # fake WorldView for isolated controller testing, no live client needed
+
+src/main/resources/
+├── fabric.mod.json                   # mod metadata, entrypoints, dependencies (fabric-api, fabric-loader)
+├── data/autowalker/block_costs.json  # module 1 static config, loaded by BlockCosts.java via Gson
+└── assets/autowalker/...             # icon, lang files (only needed if you add a config screen)
 ```
- 
+
 **Rules that keep this structure honest as the project grows:**
-- A file under `controllers/` may import from `core/types.js` and `config/`, but never from another file in `controllers/` directly — if two controllers need to share data, it flows through the tick loop's parameters, not a cross-import. This is what stops the "everything imports everything" tangle that makes debugging hard.
-- Only `execution/movementExecutor.js` and `core/worldView.js` are allowed to import the actual bot/game API (Mineflayer, etc.). Every other file works against the plain data types in `core/types.js`. This is what makes the `tests/fixtures/mockWorld.js` approach possible — controllers never know or care whether they're talking to a real server or a fixture.
-- `debug/` files subscribe to data, never produce it — if a bug only appears with `debugLogger` attached, that's itself a bug (logging must be side-effect-free).
+- A class under `controllers/` may reference `core/types/` and `config/`, but never another class in `controllers/` directly — if two controllers need to share data, it flows through `AgentTickLoop`'s method parameters, not a cross-reference. This is what stops the "everything imports everything" tangle that makes debugging hard.
+- Only `execution/MovementExecutor.java` and `core/WorldView.java` are allowed to touch the real Minecraft client API (`MinecraftClient`, `client.world`, `client.player`). Every other class works against the plain data types in `core/types/`. This is what makes the `fixtures/MockWorldView.java` approach possible — controllers never know or care whether they're talking to a real client or a fixture, so they're plain JUnit-testable without launching the game.
+- `debug/` classes subscribe to data, never produce it — if a bug only appears with `DebugLogger` attached, that's itself a bug (logging must be side-effect-free).
 
 ## Suggested build order
 
